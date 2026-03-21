@@ -1,0 +1,20 @@
+# Regras de análise estática para manter a qualidade do código Flutter.
+# Estas regras ajudam a identificar problemas antes da execução do app.
+
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    # Regras de estilo
+    prefer_const_constructors: true
+    prefer_const_declarations: true
+    prefer_final_fields: true
+    prefer_final_locals: true
+    avoid_print: false
+
+    # Regras de segurança
+    avoid_dynamic_calls: true
+    prefer_void_to_null: true
+
+    # Regras de documentação
+    slash_for_doc_comments: true
