@@ -1,55 +1,120 @@
-/// Serviço de autenticação simulado (mock).
+/// Serviço de autenticação com persistência local.
 ///
-/// Este serviço gerencia o cadastro, login e logout dos usuários.
-/// Os dados são armazenados em memória (lista), ou seja, são perdidos
-/// ao reiniciar o app. Em um app real, usaríamos Firebase, Supabase, etc.
+/// ANTES: Os dados ficavam apenas em memória (lista) e eram perdidos
+/// ao fechar o app.
 ///
-/// Utiliza o padrão ChangeNotifier do Flutter para notificar a UI
-/// sobre mudanças no estado de autenticação.
+/// AGORA: Os dados são salvos no dispositivo usando SharedPreferences.
+/// SharedPreferences armazena dados como pares chave-valor (tipo um Map)
+/// no armazenamento local do dispositivo.
+///
+/// COMO FUNCIONA A PERSISTÊNCIA:
+/// 1. Cada vez que um usuário é criado/editado/excluído, salvamos
+///    TODA a lista de usuários como uma string JSON no SharedPreferences.
+/// 2. Ao iniciar o app, carregamos essa string e reconstruímos a lista.
+/// 3. O email do usuário logado é salvo separadamente para manter a sessão.
+///
+/// CONCEITO: JSON (JavaScript Object Notation) é um formato de texto
+/// para representar dados estruturados. Ex: {"name": "João", "age": 30}
+/// Dart converte objetos para JSON com jsonEncode() e de volta com jsonDecode().
+
+import 'dart:convert'; // Fornece jsonEncode e jsonDecode
 
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../models/user_model.dart';
 
 class AuthService extends ChangeNotifier {
-  /// Lista de usuários cadastrados (armazenamento em memória).
-  /// Em produção, isso seria um banco de dados remoto.
-  final List<User> _users = [];
+  // Chaves usadas para salvar dados no SharedPreferences.
+  // Usar constantes evita erros de digitação.
+  static const _usersKey = 'cuidado_integrado_users';
+  static const _loggedInEmailKey = 'cuidado_integrado_logged_in_email';
 
-  /// Usuário atualmente logado. Null se ninguém estiver logado.
+  /// Lista de usuários cadastrados (carregada do armazenamento local).
+  List<User> _users = [];
+
+  /// Usuário atualmente logado.
   User? _currentUser;
 
-  /// Indica se existe um usuário logado.
+  /// Indica se os dados já foram carregados do armazenamento local.
+  /// Evita mostrar a tela de login antes de verificar se há sessão ativa.
+  bool _isInitialized = false;
+  bool get isInitialized => _isInitialized;
+
   bool get isAuthenticated => _currentUser != null;
 
-  /// Retorna o usuário atualmente logado (pode ser null).
   User? getCurrentUser() => _currentUser;
 
-  /// Registra um novo usuário no sistema.
+  /// Inicializa o serviço carregando dados salvos do dispositivo.
   ///
-  /// Verifica se o email já está cadastrado antes de criar a conta.
-  /// Retorna uma mensagem de erro ou null em caso de sucesso.
-  String? register(User user) {
-    // Verifica se já existe um usuário com o mesmo email
+  /// CONCEITO: async/await — Operações de leitura do disco são "assíncronas",
+  /// ou seja, levam tempo para completar. O "await" pausa a execução até
+  /// que a operação termine, sem travar a tela do app.
+  Future<void> initialize() async {
+    // Obtém a instância do SharedPreferences (acesso ao armazenamento)
+    final prefs = await SharedPreferences.getInstance();
+
+    // Carrega a lista de usuários salvos
+    final usersJson = prefs.getString(_usersKey);
+    if (usersJson != null) {
+      // jsonDecode transforma a string JSON em uma List de Maps
+      final List<dynamic> usersList = jsonDecode(usersJson);
+      _users = usersList.map((json) => User.fromJson(json)).toList();
+    }
+
+    // Verifica se havia um usuário logado na última sessão
+    final loggedInEmail = prefs.getString(_loggedInEmailKey);
+    if (loggedInEmail != null) {
+      final matches = _users.where((u) => u.email == loggedInEmail).toList();
+      if (matches.isNotEmpty) {
+        _currentUser = matches.first;
+      }
+    }
+
+    _isInitialized = true;
+    notifyListeners();
+  }
+
+  /// Salva a lista de usuários no armazenamento local.
+  ///
+  /// Chamada após qualquer operação que modifique a lista (CRUD).
+  /// jsonEncode converte a lista de Maps em uma string JSON.
+  Future<void> _saveUsers() async {
+    final prefs = await SharedPreferences.getInstance();
+    final usersJson = jsonEncode(_users.map((u) => u.toJson()).toList());
+    await prefs.setString(_usersKey, usersJson);
+  }
+
+  /// Salva o email do usuário logado para manter a sessão.
+  Future<void> _saveLoggedInUser(String? email) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (email != null) {
+      await prefs.setString(_loggedInEmailKey, email);
+    } else {
+      await prefs.remove(_loggedInEmailKey);
+    }
+  }
+
+  /// CREATE — Registra um novo usuário.
+  Future<String?> register(User user) async {
     final existingUser = _users.where((u) => u.email == user.email).toList();
     if (existingUser.isNotEmpty) {
       return 'Este email já está cadastrado.';
     }
 
-    // Adiciona o usuário à lista e faz login automático
     _users.add(user);
     _currentUser = user;
 
-    // Notifica os widgets que escutam este serviço sobre a mudança
+    // Salva no dispositivo (persistência!)
+    await _saveUsers();
+    await _saveLoggedInUser(user.email);
+
     notifyListeners();
-    return null; // null significa sucesso
+    return null;
   }
 
-  /// Realiza o login com email e senha.
-  ///
-  /// Procura um usuário com o email e senha fornecidos.
-  /// Retorna uma mensagem de erro ou null em caso de sucesso.
-  String? login(String email, String password) {
-    // Procura o usuário na lista pelo email
+  /// READ — Realiza o login.
+  Future<String?> login(String email, String password) async {
     final matches = _users.where((u) => u.email == email).toList();
 
     if (matches.isEmpty) {
@@ -58,46 +123,38 @@ class AuthService extends ChangeNotifier {
 
     final user = matches.first;
 
-    // Verifica se a senha está correta
     if (user.password != password) {
       return 'Senha incorreta. Tente novamente.';
     }
 
-    // Login bem-sucedido
     _currentUser = user;
+    await _saveLoggedInUser(user.email);
+
     notifyListeners();
     return null;
   }
 
-  /// Atualiza os dados de um usuário existente.
-  ///
-  /// Encontra o usuário pelo ID e substitui seus dados.
-  /// Retorna uma mensagem de erro ou null em caso de sucesso.
-  String? updateUser(User updatedUser) {
-    // Encontra o índice do usuário na lista pelo ID
+  /// UPDATE — Atualiza dados de um usuário.
+  Future<String?> updateUser(User updatedUser) async {
     final index = _users.indexWhere((u) => u.id == updatedUser.id);
 
     if (index == -1) {
       return 'Usuário não encontrado.';
     }
 
-    // Substitui o usuário antigo pelo atualizado
     _users[index] = updatedUser;
 
-    // Se o usuário atualizado é o logado, atualiza a referência
     if (_currentUser?.id == updatedUser.id) {
       _currentUser = updatedUser;
     }
 
+    await _saveUsers();
     notifyListeners();
     return null;
   }
 
-  /// Remove um usuário do sistema pelo ID.
-  ///
-  /// Se o usuário removido for o logado, faz logout automaticamente.
-  /// Retorna uma mensagem de erro ou null em caso de sucesso.
-  String? deleteUser(String id) {
+  /// DELETE — Remove um usuário.
+  Future<String?> deleteUser(String id) async {
     final index = _users.indexWhere((u) => u.id == id);
 
     if (index == -1) {
@@ -106,18 +163,20 @@ class AuthService extends ChangeNotifier {
 
     _users.removeAt(index);
 
-    // Se o usuário excluído é o logado, faz logout
     if (_currentUser?.id == id) {
       _currentUser = null;
+      await _saveLoggedInUser(null);
     }
 
+    await _saveUsers();
     notifyListeners();
     return null;
   }
 
-  /// Realiza o logout do usuário atual.
-  void logout() {
+  /// Realiza o logout.
+  Future<void> logout() async {
     _currentUser = null;
+    await _saveLoggedInUser(null);
     notifyListeners();
   }
 }

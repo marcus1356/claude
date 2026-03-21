@@ -178,7 +178,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
 
     final authService = Provider.of<AuthService>(context, listen: false);
-    final error = authService.register(user);
+    final error = await authService.register(user);
 
     setState(() => _isLoading = false);
 

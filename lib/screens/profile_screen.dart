@@ -177,7 +177,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       careType: _careTypeController.text.trim(),
     );
 
-    final error = authService.updateUser(updatedUser);
+    final error = await authService.updateUser(updatedUser);
 
     setState(() => _isLoading = false);
 

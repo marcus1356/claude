@@ -24,6 +24,11 @@ dependencies:
   # Validadores prontos para formulários (email, senha, etc.)
   form_builder_validators: ^9.1.0
 
+  # Armazenamento local de dados no dispositivo (chave-valor)
+  # SharedPreferences salva dados simples (String, int, bool) no dispositivo.
+  # Usamos para salvar a lista de usuários como JSON string.
+  shared_preferences: ^2.2.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

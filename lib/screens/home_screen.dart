@@ -41,12 +41,12 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  void _deleteAccount(BuildContext context) {
+  void _deleteAccount(BuildContext context) async {
     final authService = Provider.of<AuthService>(context, listen: false);
     final user = authService.getCurrentUser();
 
     if (user != null) {
-      final error = authService.deleteUser(user.id);
+      final error = await authService.deleteUser(user.id);
       if (error != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -66,9 +66,9 @@ class HomeScreen extends StatelessWidget {
     }
   }
 
-  void _handleLogout(BuildContext context) {
+  void _handleLogout(BuildContext context) async {
     final authService = Provider.of<AuthService>(context, listen: false);
-    authService.logout();
+    await authService.logout();
     Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
   }
 

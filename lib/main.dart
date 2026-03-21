@@ -1,13 +1,12 @@
 /// Ponto de entrada do aplicativo CuidadoIntegrado.
 ///
-/// Este arquivo configura:
-/// - O Provider para gerenciamento de estado (AuthService)
-/// - O tema visual com cores acessíveis (bom contraste)
-/// - As rotas nomeadas para navegação entre telas
+/// NOVIDADE: Agora o app inicializa o AuthService antes de exibir as telas.
+/// Isso é necessário porque o SharedPreferences precisa carregar os dados
+/// salvos do dispositivo (operação assíncrona).
 ///
-/// CONCEITO: O Provider é um padrão de "Dependency Injection" (injeção de
-/// dependência). Ele cria o AuthService UMA vez e o disponibiliza para
-/// qualquer widget filho que precise dele, sem passar manualmente.
+/// CONCEITO: WidgetsFlutterBinding.ensureInitialized() — Necessário quando
+/// chamamos código assíncrono antes de runApp(). Garante que o Flutter
+/// está pronto para usar plugins nativos como SharedPreferences.
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -19,22 +18,34 @@ import 'screens/register_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/profile_screen.dart';
 
-void main() {
-  runApp(const CuidadoIntegradoApp());
+void main() async {
+  // Necessário para usar await antes de runApp()
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Cria e inicializa o AuthService (carrega dados salvos)
+  final authService = AuthService();
+  await authService.initialize();
+
+  runApp(CuidadoIntegradoApp(authService: authService));
 }
 
 class CuidadoIntegradoApp extends StatelessWidget {
-  const CuidadoIntegradoApp({super.key});
+  final AuthService authService;
+
+  const CuidadoIntegradoApp({super.key, required this.authService});
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => AuthService(),
+    return ChangeNotifierProvider.value(
+      // Usa .value porque o AuthService já foi criado fora do widget.
+      // Isso preserva a instância que já carregou os dados do dispositivo.
+      value: authService,
       child: MaterialApp(
         title: 'CuidadoIntegrado',
         debugShowCheckedModeBanner: false,
         theme: _buildTheme(),
-        initialRoute: '/login',
+        // Se o usuário já estava logado, vai direto para a home
+        initialRoute: authService.isAuthenticated ? '/home' : '/login',
         routes: {
           '/login': (_) => const LoginScreen(),
           '/register': (_) => const RegisterScreen(),
@@ -45,15 +56,14 @@ class CuidadoIntegradoApp extends StatelessWidget {
     );
   }
 
-  /// Tema visual acessível seguindo WCAG AA (contraste mínimo 4.5:1).
   ThemeData _buildTheme() {
     const colorScheme = ColorScheme(
       brightness: Brightness.light,
-      primary: Color(0xFF00695C), // Teal 800
+      primary: Color(0xFF00695C),
       onPrimary: Colors.white,
-      secondary: Color(0xFF1565C0), // Blue 800
+      secondary: Color(0xFF1565C0),
       onSecondary: Colors.white,
-      error: Color(0xFFC62828), // Red 800
+      error: Color(0xFFC62828),
       onError: Colors.white,
       surface: Colors.white,
       onSurface: Color(0xFF212121),
