@@ -1,23 +1,17 @@
-/// Tela principal do aplicativo (Home).
+/// Tela principal do CuidadoIntegrado.
 ///
-/// Exibe uma mensagem de boas-vindas com o nome do usuário
-/// e oferece opções para: editar perfil, fazer logout e excluir conta.
-///
-/// Usa context.watch<AuthService>() para reagir automaticamente
-/// a mudanças no estado de autenticação.
+/// Exibe informações resumidas do perfil do usuário com dados
+/// específicos de acordo com o tipo de conta.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/user_model.dart';
 import '../services/auth_service.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
-  /// Exibe um diálogo de confirmação antes de excluir a conta.
-  ///
-  /// Usar diálogos de confirmação para ações destrutivas é uma
-  /// boa prática de UX — evita exclusões acidentais.
   void _confirmDeleteAccount(BuildContext context) {
     showDialog(
       context: context,
@@ -47,14 +41,12 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  /// Executa a exclusão da conta e redireciona ao login.
   void _deleteAccount(BuildContext context) {
     final authService = Provider.of<AuthService>(context, listen: false);
     final user = authService.getCurrentUser();
 
     if (user != null) {
       final error = authService.deleteUser(user.id);
-
       if (error != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -69,13 +61,11 @@ class HomeScreen extends StatelessWidget {
             backgroundColor: Colors.green,
           ),
         );
-        // Volta para o login removendo todas as telas anteriores da pilha
         Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
       }
     }
   }
 
-  /// Faz logout e redireciona ao login.
   void _handleLogout(BuildContext context) {
     final authService = Provider.of<AuthService>(context, listen: false);
     authService.logout();
@@ -84,41 +74,29 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // context.watch escuta mudanças no AuthService e reconstrói o widget
     final authService = context.watch<AuthService>();
     final user = authService.getCurrentUser();
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Cuidar Bem'),
-        automaticallyImplyLeading: false, // Remove o botão de voltar
+        title: const Text('CuidadoIntegrado'),
+        automaticallyImplyLeading: false,
         actions: [
-          // Botão de logout na barra superior
-          Semantics(
-            label: 'Botão para sair da conta',
-            child: IconButton(
-              icon: const Icon(Icons.logout),
-              onPressed: () => _handleLogout(context),
-              tooltip: 'Sair',
-            ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () => _handleLogout(context),
+            tooltip: 'Sair',
           ),
         ],
       ),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Saudação ao usuário
-              const SizedBox(height: 16.0),
-              Icon(
-                Icons.waving_hand,
-                size: 48.0,
-                color: Theme.of(context).colorScheme.primary,
-                semanticLabel: 'Ícone de mão acenando',
-              ),
-              const SizedBox(height: 16.0),
+              // Saudação
+              const SizedBox(height: 8.0),
               Text(
                 'Olá, ${user?.name ?? 'Usuário'}!',
                 textAlign: TextAlign.center,
@@ -126,48 +104,33 @@ class HomeScreen extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                     ),
               ),
-              const SizedBox(height: 8.0),
+              const SizedBox(height: 4.0),
               Text(
-                'Bem-vindo(a) ao Cuidar Bem.',
+                user?.userType.label ?? '',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withOpacity(0.7),
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.w500,
                     ),
               ),
-              const SizedBox(height: 40.0),
+              const SizedBox(height: 24.0),
 
-              // Card com informações do perfil
-              Card(
-                elevation: 2.0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.0),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Seu Perfil',
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                      ),
-                      const Divider(),
-                      _buildInfoRow(Icons.email, 'Email', user?.email ?? '-'),
-                      _buildInfoRow(Icons.phone, 'Telefone', user?.phone ?? '-'),
-                      _buildInfoRow(
-                          Icons.location_city, 'Cidade', user?.city ?? '-'),
-                      _buildInfoRow(Icons.person, 'Tipo',
-                          user?.userType.label ?? '-'),
-                    ],
-                  ),
-                ),
+              // Card: Dados comuns
+              _buildCard(
+                context,
+                title: 'Dados Pessoais',
+                icon: Icons.person,
+                children: [
+                  _buildInfoRow(Icons.email, 'Email', user?.email ?? '-'),
+                  _buildInfoRow(Icons.phone, 'Telefone', user?.phone ?? '-'),
+                  _buildInfoRow(
+                      Icons.location_city, 'Cidade', user?.city ?? '-'),
+                ],
               ),
+
+              // Card: Dados específicos por tipo
+              if (user != null) _buildSpecificCard(context, user),
+
               const SizedBox(height: 24.0),
 
               // Botão: Editar perfil
@@ -189,7 +152,7 @@ class HomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12.0),
 
-              // Botão: Excluir conta (vermelho para indicar ação destrutiva)
+              // Botão: Excluir conta
               OutlinedButton.icon(
                 onPressed: () => _confirmDeleteAccount(context),
                 icon: const Icon(Icons.delete_forever),
@@ -215,14 +178,136 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  /// Constrói uma linha de informação com ícone, rótulo e valor.
+  /// Constrói o card com informações específicas do tipo de usuário.
+  Widget _buildSpecificCard(BuildContext context, User user) {
+    switch (user.userType) {
+      case UserType.professional:
+        return _buildCard(
+          context,
+          title: 'Dados Profissionais',
+          icon: Icons.medical_services,
+          children: [
+            _buildInfoRow(Icons.work, 'Especialidade',
+                user.specialty?.label ?? '-'),
+            _buildInfoRow(Icons.badge, 'Registro',
+                user.professionalRegistration ?? '-'),
+            _buildInfoRow(Icons.location_on, 'Consultório',
+                user.officeAddress ?? '-'),
+            _buildInfoRow(Icons.description, 'Bio', user.bio ?? '-'),
+            _buildInfoRow(Icons.health_and_safety, 'Convênio',
+                user.acceptsInsurance == true ? 'Sim' : 'Não'),
+          ],
+        );
+
+      case UserType.personWithDisability:
+        return _buildCard(
+          context,
+          title: 'Informações da Deficiência',
+          icon: Icons.accessibility_new,
+          children: [
+            _buildInfoRow(Icons.category, 'Tipo',
+                user.disabilityType?.label ?? '-'),
+            _buildInfoRow(
+                Icons.cake,
+                'Nascimento',
+                user.dateOfBirth != null
+                    ? _formatDate(user.dateOfBirth!)
+                    : '-'),
+            _buildInfoRow(Icons.note, 'Necessidades',
+                user.specificNeeds ?? '-'),
+            _buildInfoRow(Icons.accessible, 'Cadeira de rodas',
+                user.usesWheelchair == true ? 'Sim' : 'Não'),
+          ],
+        );
+
+      case UserType.elderly:
+        return _buildCard(
+          context,
+          title: 'Informações de Saúde',
+          icon: Icons.elderly,
+          children: [
+            _buildInfoRow(
+                Icons.cake,
+                'Nascimento',
+                user.dateOfBirth != null
+                    ? _formatDate(user.dateOfBirth!)
+                    : '-'),
+            _buildInfoRow(Icons.medical_information, 'Condições',
+                user.healthConditions ?? '-'),
+            _buildInfoRow(Icons.note, 'Necessidades',
+                user.specificNeeds ?? '-'),
+            _buildInfoRow(Icons.accessible, 'Mobilidade reduzida',
+                user.reducedMobility == true ? 'Sim' : 'Não'),
+          ],
+        );
+
+      case UserType.familyMember:
+        return _buildCard(
+          context,
+          title: 'Sobre quem você cuida',
+          icon: Icons.family_restroom,
+          children: [
+            _buildInfoRow(Icons.people, 'Parentesco',
+                user.relationship?.label ?? '-'),
+            _buildInfoRow(
+                Icons.person, 'Nome do paciente', user.patientName ?? '-'),
+            _buildInfoRow(Icons.healing, 'Tipo de cuidado',
+                user.careType ?? '-'),
+          ],
+        );
+    }
+  }
+
+  /// Card reutilizável com título e lista de informações.
+  Widget _buildCard(
+    BuildContext context, {
+    required String title,
+    required IconData icon,
+    required List<Widget> children,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: Card(
+        elevation: 2.0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12.0),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(icon,
+                      color: Theme.of(context).colorScheme.primary,
+                      size: 22.0),
+                  const SizedBox(width: 8.0),
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                ],
+              ),
+              const Divider(),
+              ...children,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildInfoRow(IconData icon, String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20.0, color: Colors.grey[600]),
-          const SizedBox(width: 12.0),
+          Icon(icon, size: 18.0, color: Colors.grey[600]),
+          const SizedBox(width: 10.0),
           Text(
             '$label: ',
             style: const TextStyle(
@@ -239,5 +324,11 @@ class HomeScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}/'
+        '${date.month.toString().padLeft(2, '0')}/'
+        '${date.year}';
   }
 }

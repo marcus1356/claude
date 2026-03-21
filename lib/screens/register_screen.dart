@@ -1,8 +1,11 @@
-/// Tela de cadastro de novos usuários.
+/// Tela de cadastro do CuidadoIntegrado.
 ///
-/// Permite que o usuário crie uma conta preenchendo todos os dados necessários:
-/// nome, email, senha, telefone, cidade, tipo de deficiência e tipo de usuário.
-/// Usa validação de formulário e o AuthService para registrar o usuário.
+/// Esta é a tela mais complexa do CRUD. Ela exibe campos diferentes
+/// dependendo do tipo de usuário selecionado.
+///
+/// CONCEITO: Formulários condicionais — Usamos "if" dentro do Column
+/// para mostrar/esconder widgets baseado no estado atual.
+/// Quando o usuário muda o tipo, o setState reconstrói a tela.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -20,46 +23,100 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  // Chave global para identificar e validar o formulário
   final _formKey = GlobalKey<FormState>();
 
-  // Controladores para cada campo de texto
+  // --- Controladores para campos comuns ---
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _phoneController = TextEditingController();
   final _cityController = TextEditingController();
 
-  // Valores selecionados nos dropdowns
-  DisabilityType _selectedDisability = DisabilityType.other;
-  UserType _selectedUserType = UserType.patient;
+  // --- Controladores para campos do Profissional ---
+  final _registrationController = TextEditingController();
+  final _officeAddressController = TextEditingController();
+  final _bioController = TextEditingController();
 
-  // Estado de carregamento durante o registro
+  // --- Controladores para campos da PcD / Idoso ---
+  final _specificNeedsController = TextEditingController();
+  final _healthConditionsController = TextEditingController();
+
+  // --- Controladores para campos do Familiar ---
+  final _patientNameController = TextEditingController();
+  final _careTypeController = TextEditingController();
+
+  // --- Valores dos dropdowns/switches ---
+  UserType _selectedUserType = UserType.personWithDisability;
+  ProfessionalSpecialty _selectedSpecialty =
+      ProfessionalSpecialty.physiotherapist;
+  DisabilityType _selectedDisability = DisabilityType.physical;
+  Relationship _selectedRelationship = Relationship.parent;
+  bool _acceptsInsurance = false;
+  bool _usesWheelchair = false;
+  bool _reducedMobility = false;
+  DateTime? _dateOfBirth;
+
   bool _isLoading = false;
 
   @override
   void dispose() {
-    // Libera os controladores para evitar vazamento de memória
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _phoneController.dispose();
     _cityController.dispose();
+    _registrationController.dispose();
+    _officeAddressController.dispose();
+    _bioController.dispose();
+    _specificNeedsController.dispose();
+    _healthConditionsController.dispose();
+    _patientNameController.dispose();
+    _careTypeController.dispose();
     super.dispose();
   }
 
-  /// Processa o registro do novo usuário.
-  ///
-  /// 1. Valida todos os campos do formulário
-  /// 2. Cria um objeto User com os dados preenchidos
-  /// 3. Chama o AuthService para registrar
-  /// 4. Navega para a home ou exibe erro
+  /// Abre o seletor de data para campos de nascimento.
+  Future<void> _selectDateOfBirth() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _dateOfBirth ?? DateTime(1980),
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+      helpText: 'Selecione a data de nascimento',
+      cancelText: 'Cancelar',
+      confirmText: 'Confirmar',
+    );
+    if (picked != null) {
+      setState(() => _dateOfBirth = picked);
+    }
+  }
+
+  /// Formata uma data para exibição no formato brasileiro.
+  String _formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}/'
+        '${date.month.toString().padLeft(2, '0')}/'
+        '${date.year}';
+  }
+
+  /// Processa o cadastro criando o User com os campos corretos.
   Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
 
+    // Validação extra: data de nascimento obrigatória para PcD e Idoso
+    if ((_selectedUserType == UserType.personWithDisability ||
+            _selectedUserType == UserType.elderly) &&
+        _dateOfBirth == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Por favor, selecione a data de nascimento.'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
-    // Cria o objeto User com um ID único baseado no timestamp
     final user = User(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       name: _nameController.text.trim(),
@@ -67,19 +124,65 @@ class _RegisterScreenState extends State<RegisterScreen> {
       password: _passwordController.text,
       phone: _phoneController.text.trim(),
       city: _cityController.text.trim(),
-      disabilityType: _selectedDisability,
       userType: _selectedUserType,
       createdAt: DateTime.now(),
+      // Profissional
+      specialty: _selectedUserType == UserType.professional
+          ? _selectedSpecialty
+          : null,
+      professionalRegistration: _selectedUserType == UserType.professional
+          ? _registrationController.text.trim()
+          : null,
+      officeAddress: _selectedUserType == UserType.professional
+          ? _officeAddressController.text.trim()
+          : null,
+      bio: _selectedUserType == UserType.professional
+          ? _bioController.text.trim()
+          : null,
+      acceptsInsurance: _selectedUserType == UserType.professional
+          ? _acceptsInsurance
+          : null,
+      // PcD
+      disabilityType: _selectedUserType == UserType.personWithDisability
+          ? _selectedDisability
+          : null,
+      usesWheelchair: _selectedUserType == UserType.personWithDisability
+          ? _usesWheelchair
+          : null,
+      // PcD e Idoso (compartilhados)
+      dateOfBirth: (_selectedUserType == UserType.personWithDisability ||
+              _selectedUserType == UserType.elderly)
+          ? _dateOfBirth
+          : null,
+      specificNeeds: (_selectedUserType == UserType.personWithDisability ||
+              _selectedUserType == UserType.elderly)
+          ? _specificNeedsController.text.trim()
+          : null,
+      // Idoso
+      healthConditions: _selectedUserType == UserType.elderly
+          ? _healthConditionsController.text.trim()
+          : null,
+      reducedMobility: _selectedUserType == UserType.elderly
+          ? _reducedMobility
+          : null,
+      // Familiar
+      relationship: _selectedUserType == UserType.familyMember
+          ? _selectedRelationship
+          : null,
+      patientName: _selectedUserType == UserType.familyMember
+          ? _patientNameController.text.trim()
+          : null,
+      careType: _selectedUserType == UserType.familyMember
+          ? _careTypeController.text.trim()
+          : null,
     );
 
-    // Acessa o AuthService sem escutar mudanças (listen: false)
     final authService = Provider.of<AuthService>(context, listen: false);
     final error = authService.register(user);
 
     setState(() => _isLoading = false);
 
     if (error != null) {
-      // Exibe mensagem de erro
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -89,7 +192,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
         );
       }
     } else {
-      // Registro bem-sucedido: navega para a home removendo telas anteriores
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -116,27 +218,88 @@ class _RegisterScreenState extends State<RegisterScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Mensagem de boas-vindas
+                // Título
                 Text(
-                  'Preencha seus dados para criar sua conta',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withOpacity(0.7),
+                  'Preencha seus dados',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
                       ),
-                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24.0),
 
-                // Campo: Nome completo
+                // ═══════════════════════════════════════════
+                // PASSO 1: Selecionar o tipo de usuário
+                // ═══════════════════════════════════════════
+                Text(
+                  'Eu sou:',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                const SizedBox(height: 8.0),
+
+                // Grid de cards para seleção do tipo de usuário.
+                // Wrap organiza os cards em linhas, quebrando quando não cabe.
+                Wrap(
+                  spacing: 8.0,
+                  runSpacing: 8.0,
+                  children: UserType.values.map((type) {
+                    final isSelected = _selectedUserType == type;
+                    return GestureDetector(
+                      onTap: () => setState(() => _selectedUserType = type),
+                      child: Container(
+                        width: (MediaQuery.of(context).size.width - 56) / 2,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 14.0,
+                          horizontal: 12.0,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? Theme.of(context).colorScheme.primary
+                              : Colors.white,
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.primary,
+                            width: 2.0,
+                          ),
+                          borderRadius: BorderRadius.circular(12.0),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              type.icon,
+                              style: const TextStyle(fontSize: 24.0),
+                            ),
+                            const SizedBox(height: 4.0),
+                            Text(
+                              type.label,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 13.0,
+                                fontWeight: FontWeight.w600,
+                                color: isSelected
+                                    ? Colors.white
+                                    : Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 24.0),
+
+                // ═══════════════════════════════════════════
+                // PASSO 2: Campos comuns a todos os tipos
+                // ═══════════════════════════════════════════
+                _buildSectionTitle('Dados pessoais'),
+
                 CustomTextField(
                   label: 'Nome completo',
                   hint: 'Seu nome completo',
                   controller: _nameController,
-                  keyboardType: TextInputType.name,
                   textInputAction: TextInputAction.next,
-                  semanticLabel: 'Campo para digitar seu nome completo',
+                  semanticLabel: 'Nome completo',
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Por favor, insira seu nome.';
@@ -147,15 +310,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     return null;
                   },
                 ),
-
-                // Campo: Email
                 CustomTextField(
                   label: 'Email',
                   hint: 'seu@email.com',
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
                   textInputAction: TextInputAction.next,
-                  semanticLabel: 'Campo para digitar seu email',
+                  semanticLabel: 'Email',
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Por favor, insira seu email.';
@@ -167,15 +328,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     return null;
                   },
                 ),
-
-                // Campo: Senha
                 CustomTextField(
                   label: 'Senha',
                   hint: 'Mínimo 6 caracteres',
                   controller: _passwordController,
                   obscureText: true,
                   textInputAction: TextInputAction.next,
-                  semanticLabel: 'Campo para criar sua senha',
+                  semanticLabel: 'Senha',
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Por favor, insira uma senha.';
@@ -186,15 +345,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     return null;
                   },
                 ),
-
-                // Campo: Telefone
                 CustomTextField(
                   label: 'Telefone',
                   hint: '(11) 99999-9999',
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
                   textInputAction: TextInputAction.next,
-                  semanticLabel: 'Campo para digitar seu telefone',
+                  semanticLabel: 'Telefone',
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Por favor, insira seu telefone.';
@@ -202,15 +359,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     return null;
                   },
                 ),
-
-                // Campo: Cidade
                 CustomTextField(
                   label: 'Cidade',
                   hint: 'Sua cidade',
                   controller: _cityController,
-                  keyboardType: TextInputType.text,
                   textInputAction: TextInputAction.done,
-                  semanticLabel: 'Campo para digitar sua cidade',
+                  semanticLabel: 'Cidade',
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Por favor, insira sua cidade.';
@@ -218,36 +372,88 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 8.0),
+                const SizedBox(height: 16.0),
 
-                // Dropdown: Tipo de deficiência
-                // DropdownButtonFormField permite validação integrada ao Form
-                Semantics(
-                  label: 'Selecione o tipo de deficiência',
-                  child: DropdownButtonFormField<DisabilityType>(
-                    value: _selectedDisability,
-                    decoration: InputDecoration(
-                      labelText: 'Tipo de Deficiência',
-                      labelStyle: TextStyle(
-                        fontSize: 16.0,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.0),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16.0,
-                        vertical: 16.0,
-                      ),
-                    ),
-                    // Gera os itens do dropdown a partir do enum DisabilityType
-                    items: DisabilityType.values.map((type) {
+                // ═══════════════════════════════════════════
+                // PASSO 3: Campos específicos por tipo
+                // ═══════════════════════════════════════════
+
+                // --- PROFISSIONAL DE SAÚDE ---
+                if (_selectedUserType == UserType.professional) ...[
+                  _buildSectionTitle('Dados profissionais'),
+
+                  // Dropdown: Especialidade
+                  DropdownButtonFormField<ProfessionalSpecialty>(
+                    value: _selectedSpecialty,
+                    decoration: _dropdownDecoration('Especialidade'),
+                    items: ProfessionalSpecialty.values.map((s) {
                       return DropdownMenuItem(
-                        value: type,
-                        child: Text(
-                          type.label,
-                          style: const TextStyle(fontSize: 16.0),
-                        ),
+                        value: s,
+                        child: Text(s.label),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _selectedSpecialty = value);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 8.0),
+
+                  // Campo: Registro profissional (CRM, CREFITO, etc.)
+                  CustomTextField(
+                    label:
+                        'Registro (${_selectedSpecialty.registrationLabel})',
+                    hint: 'Ex: ${_selectedSpecialty.registrationLabel} 12345',
+                    controller: _registrationController,
+                    textInputAction: TextInputAction.next,
+                    semanticLabel: 'Número do registro profissional',
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Por favor, insira seu registro profissional.';
+                      }
+                      return null;
+                    },
+                  ),
+
+                  CustomTextField(
+                    label: 'Endereço do consultório',
+                    hint: 'Rua, número, bairro',
+                    controller: _officeAddressController,
+                    textInputAction: TextInputAction.next,
+                    semanticLabel: 'Endereço do consultório',
+                  ),
+
+                  CustomTextField(
+                    label: 'Sobre você (bio)',
+                    hint: 'Descreva sua experiência e especialidades',
+                    controller: _bioController,
+                    textInputAction: TextInputAction.done,
+                    semanticLabel: 'Descrição profissional',
+                  ),
+
+                  // Switch: Aceita convênio
+                  SwitchListTile(
+                    title: const Text('Aceita convênio/plano de saúde?'),
+                    value: _acceptsInsurance,
+                    onChanged: (value) {
+                      setState(() => _acceptsInsurance = value);
+                    },
+                    activeColor: Theme.of(context).colorScheme.primary,
+                  ),
+                ],
+
+                // --- PESSOA COM DEFICIÊNCIA ---
+                if (_selectedUserType == UserType.personWithDisability) ...[
+                  _buildSectionTitle('Informações sobre a deficiência'),
+
+                  DropdownButtonFormField<DisabilityType>(
+                    value: _selectedDisability,
+                    decoration: _dropdownDecoration('Tipo de deficiência'),
+                    items: DisabilityType.values.map((d) {
+                      return DropdownMenuItem(
+                        value: d,
+                        child: Text(d.label),
                       );
                     }).toList(),
                     onChanged: (value) {
@@ -256,68 +462,110 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       }
                     },
                   ),
-                ),
-                const SizedBox(height: 16.0),
+                  const SizedBox(height: 8.0),
 
-                // Seleção: Tipo de usuário (paciente ou profissional)
-                // Usa segmented button para escolha clara e acessível
-                Text(
-                  'Você é:',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-                const SizedBox(height: 8.0),
-                Semantics(
-                  label: 'Selecione se você é paciente ou profissional',
-                  child: Row(
-                    children: UserType.values.map((type) {
-                      final isSelected = _selectedUserType == type;
-                      return Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                          child: GestureDetector(
-                            onTap: () {
-                              setState(() => _selectedUserType = type);
-                            },
-                            child: Container(
-                              height: 52.0,
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? Theme.of(context).colorScheme.primary
-                                    : Colors.transparent,
-                                border: Border.all(
-                                  color:
-                                      Theme.of(context).colorScheme.primary,
-                                  width: 2.0,
-                                ),
-                                borderRadius: BorderRadius.circular(12.0),
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                type.label,
-                                style: TextStyle(
-                                  fontSize: 14.0,
-                                  fontWeight: FontWeight.w600,
-                                  color: isSelected
-                                      ? Theme.of(context)
-                                          .colorScheme
-                                          .onPrimary
-                                      : Theme.of(context)
-                                          .colorScheme
-                                          .primary,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
+                  // Seletor de data de nascimento
+                  _buildDateSelector(),
+
+                  CustomTextField(
+                    label: 'Necessidades específicas',
+                    hint: 'Descreva suas necessidades de atendimento',
+                    controller: _specificNeedsController,
+                    textInputAction: TextInputAction.done,
+                    semanticLabel: 'Necessidades específicas',
+                  ),
+
+                  SwitchListTile(
+                    title: const Text('Utiliza cadeira de rodas?'),
+                    value: _usesWheelchair,
+                    onChanged: (value) {
+                      setState(() => _usesWheelchair = value);
+                    },
+                    activeColor: Theme.of(context).colorScheme.primary,
+                  ),
+                ],
+
+                // --- PESSOA IDOSA ---
+                if (_selectedUserType == UserType.elderly) ...[
+                  _buildSectionTitle('Informações de saúde'),
+
+                  _buildDateSelector(),
+
+                  CustomTextField(
+                    label: 'Condições de saúde',
+                    hint: 'Ex: diabetes, hipertensão, Alzheimer',
+                    controller: _healthConditionsController,
+                    textInputAction: TextInputAction.next,
+                    semanticLabel: 'Condições de saúde',
+                  ),
+
+                  CustomTextField(
+                    label: 'Necessidades específicas',
+                    hint: 'Descreva suas necessidades de atendimento',
+                    controller: _specificNeedsController,
+                    textInputAction: TextInputAction.done,
+                    semanticLabel: 'Necessidades específicas',
+                  ),
+
+                  SwitchListTile(
+                    title: const Text('Possui mobilidade reduzida?'),
+                    value: _reducedMobility,
+                    onChanged: (value) {
+                      setState(() => _reducedMobility = value);
+                    },
+                    activeColor: Theme.of(context).colorScheme.primary,
+                  ),
+                ],
+
+                // --- FAMILIAR / CUIDADOR ---
+                if (_selectedUserType == UserType.familyMember) ...[
+                  _buildSectionTitle('Sobre quem você cuida'),
+
+                  DropdownButtonFormField<Relationship>(
+                    value: _selectedRelationship,
+                    decoration: _dropdownDecoration('Parentesco'),
+                    items: Relationship.values.map((r) {
+                      return DropdownMenuItem(
+                        value: r,
+                        child: Text(r.label),
                       );
                     }).toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _selectedRelationship = value);
+                      }
+                    },
                   ),
-                ),
+                  const SizedBox(height: 8.0),
+
+                  CustomTextField(
+                    label: 'Nome de quem você cuida',
+                    hint: 'Nome completo do paciente',
+                    controller: _patientNameController,
+                    textInputAction: TextInputAction.next,
+                    semanticLabel: 'Nome do paciente',
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Por favor, insira o nome do paciente.';
+                      }
+                      return null;
+                    },
+                  ),
+
+                  CustomTextField(
+                    label: 'Tipo de cuidado que busca',
+                    hint: 'Ex: fisioterapia, acompanhamento psicológico',
+                    controller: _careTypeController,
+                    textInputAction: TextInputAction.done,
+                    semanticLabel: 'Tipo de cuidado necessário',
+                  ),
+                ],
+
                 const SizedBox(height: 24.0),
 
-                // Botão de cadastro
+                // ═══════════════════════════════════════════
+                // PASSO 4: Botão de cadastro
+                // ═══════════════════════════════════════════
                 CustomButton(
                   text: 'Criar Conta',
                   isLoading: _isLoading,
@@ -326,20 +574,93 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 8.0),
 
-                // Link para voltar ao login
                 TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
+                  onPressed: () => Navigator.pop(context),
                   child: const Text(
                     'Já tem conta? Faça login',
                     style: TextStyle(fontSize: 16.0),
-                    semanticsLabel:
-                        'Link para voltar à tela de login. Toque para entrar na sua conta.',
+                    semanticsLabel: 'Link para voltar à tela de login',
                   ),
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // WIDGETS AUXILIARES — Métodos que criam pedaços reutilizáveis da tela
+  // ---------------------------------------------------------------------------
+
+  /// Título de seção com linha divisória.
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Divider(),
+          const SizedBox(height: 4.0),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Decoração padrão para DropdownButtonFormField.
+  InputDecoration _dropdownDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12.0),
+      ),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: 16.0,
+        vertical: 16.0,
+      ),
+    );
+  }
+
+  /// Seletor de data de nascimento com botão.
+  Widget _buildDateSelector() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: InkWell(
+        onTap: _selectDateOfBirth,
+        borderRadius: BorderRadius.circular(12.0),
+        child: Container(
+          padding: const EdgeInsets.all(16.0),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey[400]!),
+            borderRadius: BorderRadius.circular(12.0),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.calendar_today,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 12.0),
+              Text(
+                _dateOfBirth != null
+                    ? 'Nascimento: ${_formatDate(_dateOfBirth!)}'
+                    : 'Selecionar data de nascimento',
+                style: TextStyle(
+                  fontSize: 16.0,
+                  color: _dateOfBirth != null
+                      ? Theme.of(context).colorScheme.onSurface
+                      : Colors.grey[600],
+                ),
+              ),
+            ],
           ),
         ),
       ),

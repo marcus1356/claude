@@ -1,5 +1,7 @@
-name: cuidar_bem
-description: Aplicativo para ajudar pessoas com deficiência a encontrar profissionais de saúde.
+name: cuidado_integrado
+description: >
+  Aplicativo para conectar pessoas com deficiência, idosos e familiares
+  a profissionais de saúde especializados.
 publish_to: 'none'
 version: 1.0.0+1
 
