@@ -13,6 +13,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import 'services/auth_service.dart';
+import 'screens/landing_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/home_screen.dart';
@@ -44,9 +45,10 @@ class CuidadoIntegradoApp extends StatelessWidget {
         title: 'CuidadoIntegrado',
         debugShowCheckedModeBanner: false,
         theme: _buildTheme(),
-        // Se o usuário já estava logado, vai direto para a home
-        initialRoute: authService.isAuthenticated ? '/home' : '/login',
+        // Se autenticado vai para home, senão mostra a landing page
+        initialRoute: authService.isAuthenticated ? '/home' : '/landing',
         routes: {
+          '/landing': (_) => const LandingScreen(),
           '/login': (_) => const LoginScreen(),
           '/register': (_) => const RegisterScreen(),
           '/home': (_) => const HomeScreen(),

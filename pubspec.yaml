@@ -22,7 +22,7 @@ dependencies:
   flutter_form_builder: ^9.2.1
 
   # Validadores prontos para formulários (email, senha, etc.)
-  form_builder_validators: ^9.1.0
+  form_builder_validators: ^11.1.2
 
   # Armazenamento local de dados no dispositivo (chave-valor)
   # SharedPreferences salva dados simples (String, int, bool) no dispositivo.
