@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -7,8 +6,9 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.agent import run_daily_post
+from app import agent
 from app.database import get_all_posts, get_post_stats, init_db
+from app.platforms.registry import PlatformRegistry
 from app.scheduler import start_scheduler, stop_scheduler
 
 load_dotenv()
@@ -19,17 +19,24 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+registry = PlatformRegistry()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    registry.load()
+    agent.registry = registry
     start_scheduler()
-    logger.info("AI Twitter Marketing Agent is running.")
+    active = len(registry.get_active_clients())
+    logger.info(
+        f"AI Marketing Agent running with {active} active account(s)."
+    )
     yield
     stop_scheduler()
 
 
-app = FastAPI(title="AI Twitter Marketing Agent", lifespan=lifespan)
+app = FastAPI(title="AI Social Media Marketing Agent", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
@@ -40,19 +47,31 @@ async def dashboard():
 
 
 @app.get("/api/posts")
-async def api_posts(limit: int = 50, offset: int = 0):
-    return await get_all_posts(limit=limit, offset=offset)
+async def api_posts(limit: int = 50, offset: int = 0, platform: str = None):
+    return await get_all_posts(limit=limit, offset=offset, platform=platform)
 
 
 @app.get("/api/stats")
-async def api_stats():
-    return await get_post_stats()
+async def api_stats(platform: str = None):
+    return await get_post_stats(platform=platform)
+
+
+@app.get("/api/accounts")
+async def api_accounts():
+    return {
+        "accounts": registry.get_accounts_summary(),
+        "available_platforms": registry.get_available_platforms(),
+    }
 
 
 @app.post("/api/post-now")
-async def api_post_now():
+async def api_post_now(account: str = None):
+    """Post now to all accounts or a specific one."""
     try:
-        await run_daily_post()
+        if account:
+            await agent.post_to_account(account)
+        else:
+            await agent.run_daily_post()
         return {"status": "ok"}
     except Exception as e:
         logger.error(f"Manual post failed: {e}")

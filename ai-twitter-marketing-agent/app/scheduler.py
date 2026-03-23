@@ -19,7 +19,7 @@ def start_scheduler():
         trigger="cron",
         hour=hour,
         minute=minute,
-        id="daily_tweet",
+        id="daily_post_all_platforms",
         replace_existing=True,
     )
     scheduler.start()

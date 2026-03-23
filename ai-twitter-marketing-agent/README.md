@@ -1,18 +1,27 @@
-# AI Twitter Marketing Agent
+# AI Social Media Marketing Agent
 
-Agente de IA que gera conteúdo de marketing e posta automaticamente no Twitter/X diariamente.
+Agente de IA que gera conteudo de marketing e posta automaticamente em multiplas redes sociais.
+
+## Plataformas Suportadas
+
+| Plataforma | Status | Descricao |
+|---|---|---|
+| **Twitter/X** | Pronto | Via Tweepy (Twitter API v2) |
+| **LinkedIn** | Pronto | Via LinkedIn API (OAuth 2.0) |
+| **Bluesky** | Pronto | Via AT Protocol |
+
+Novas plataformas podem ser adicionadas criando uma classe que herda de `PlatformClient`.
 
 ## Stack
 
 - **Python + FastAPI** — API e dashboard web
-- **Claude (Anthropic)** — Geração de conteúdo inteligente
-- **Tweepy** — Integração com Twitter/X API
-- **APScheduler** — Agendamento diário automático
+- **Claude (Anthropic)** — Geracao de conteudo adaptado por plataforma
 - **SQLite** — Armazenamento local dos posts
+- **APScheduler** — Agendamento diario automatico
 
 ## Setup
 
-### 1. Instalar dependências
+### 1. Instalar dependencias
 
 ```bash
 cd ai-twitter-marketing-agent
@@ -21,18 +30,22 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Configurar variáveis de ambiente
+### 2. Configurar variaveis de ambiente
 
 ```bash
 cp .env.example .env
-# Edite o .env com suas credenciais
+# Edite o .env com sua API key da Anthropic e configuracao da marca
 ```
 
-Você precisa de:
-- **Twitter API keys** — Crie um app em [developer.twitter.com](https://developer.twitter.com)
-- **Anthropic API key** — Obtenha em [console.anthropic.com](https://console.anthropic.com)
+### 3. Configurar contas
 
-### 3. Executar
+```bash
+cp accounts.json.example accounts.json
+# Edite accounts.json com as credenciais das suas contas
+# Ative/desative contas com "enabled": true/false
+```
+
+### 4. Executar
 
 ```bash
 python main.py
@@ -40,23 +53,30 @@ python main.py
 
 Acesse o dashboard em `http://localhost:8000`
 
-## Funcionalidades
+## Arquitetura Multi-Plataforma
 
-- **Geração automática de tweets** usando Claude AI
-- **Postagem diária agendada** (horário configurável via `.env`)
-- **Dashboard web** para acompanhar todos os posts
-- **Botão "Postar Agora"** para postagem manual
-- **Histórico completo** com status de cada post (publicado, falhou, pendente)
+```
+accounts.json          -> Define contas e credenciais
+app/platforms/base.py  -> Classe base PlatformClient
+app/platforms/twitter.py, linkedin.py, bluesky.py -> Implementacoes
+app/platforms/registry.py -> Carrega e gerencia contas ativas
+app/content_generator.py  -> Gera conteudo adaptado por plataforma
+app/agent.py              -> Orquestra geracao + postagem
+```
 
-## Configuração do Agente
+### Adicionando uma nova plataforma
 
-No arquivo `.env`, configure o perfil da marca:
+1. Crie `app/platforms/minha_rede.py` com uma classe que herda `PlatformClient`
+2. Implemente os metodos `post()`, `validate_credentials()` e `get_content_rules()`
+3. Registre no dicionario `PLATFORM_CLASSES` em `app/platforms/registry.py`
+4. Adicione a conta no `accounts.json`
 
-| Variável | Descrição |
-|---|---|
-| `BRAND_NAME` | Nome da marca |
-| `BRAND_DESCRIPTION` | Descrição do negócio |
-| `BRAND_TONE` | Tom de voz (ex: profissional, divertido) |
-| `BRAND_TOPICS` | Tópicos para os posts |
-| `POST_HOUR` | Hora da postagem diária (0-23) |
-| `POST_MINUTE` | Minuto da postagem diária (0-59) |
+## API Endpoints
+
+| Metodo | Rota | Descricao |
+|---|---|---|
+| GET | `/` | Dashboard web |
+| GET | `/api/posts?platform=twitter` | Lista posts (filtro opcional) |
+| GET | `/api/stats?platform=twitter` | Estatisticas (filtro opcional) |
+| GET | `/api/accounts` | Lista contas configuradas |
+| POST | `/api/post-now?account=nome` | Posta agora (conta especifica ou todas) |
