@@ -1,0 +1,46 @@
+{
+  "accounts": [
+    {
+      "name": "twitter-main",
+      "platform": "twitter",
+      "enabled": true,
+      "credentials": {
+        "api_key": "your_api_key",
+        "api_secret": "your_api_secret",
+        "access_token": "your_access_token",
+        "access_token_secret": "your_access_token_secret",
+        "bearer_token": "your_bearer_token"
+      }
+    },
+    {
+      "name": "twitter-secondary",
+      "platform": "twitter",
+      "enabled": false,
+      "credentials": {
+        "api_key": "your_api_key",
+        "api_secret": "your_api_secret",
+        "access_token": "your_access_token",
+        "access_token_secret": "your_access_token_secret",
+        "bearer_token": "your_bearer_token"
+      }
+    },
+    {
+      "name": "linkedin-company",
+      "platform": "linkedin",
+      "enabled": false,
+      "credentials": {
+        "access_token": "your_oauth_access_token",
+        "person_id": "your_linkedin_person_id"
+      }
+    },
+    {
+      "name": "bluesky-main",
+      "platform": "bluesky",
+      "enabled": false,
+      "credentials": {
+        "handle": "yourhandle.bsky.social",
+        "app_password": "your_app_password"
+      }
+    }
+  ]
+}
