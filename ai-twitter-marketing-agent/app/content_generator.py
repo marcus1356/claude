@@ -2,10 +2,25 @@ import anthropic
 import os
 import random
 import logging
+import requests
+import xml.etree.ElementTree as ET
 
 from app.platforms.base import PlatformClient
 
 logger = logging.getLogger(__name__)
+
+
+def fetch_trending_topics() -> list:
+    """Fetch trending topics from Google Trends Brazil."""
+    try:
+        url = "https://trends.google.com/trends/trendingsearches/daily/rss?geo=BR"
+        response = requests.get(url, timeout=6, headers={"User-Agent": "Mozilla/5.0"})
+        root = ET.fromstring(response.text)
+        topics = [item.text for item in root.findall(".//item/title") if item.text]
+        return topics[:10]
+    except Exception as e:
+        logger.warning(f"Could not fetch trending topics: {e}")
+        return []
 
 DEMO_TWEETS = [
     "The future of productivity isn't working harder — it's working smarter with AI. What's one task you'd love to automate? #AI #Productivity",
@@ -45,13 +60,18 @@ def generate_content(platform_client: PlatformClient) -> str:
     brand_topics = os.getenv("BRAND_TOPICS", "technology, innovation")
     platform_rules = platform_client.get_content_rules()
 
+    trending = fetch_trending_topics()
+    trending_section = ""
+    if trending:
+        trending_section = f"\nCurrent trending topics in Brazil (use one if relevant): {', '.join(trending)}\n"
+
     prompt = f"""You are a social media marketing expert. Generate a single post for {platform_client.platform_name.upper()} for the brand below.
 
 Brand: {brand_name}
 Description: {brand_description}
 Tone: {brand_tone}
 Topics to cover (pick one): {brand_topics}
-
+{trending_section}
 Platform-specific rules:
 {platform_rules}
 
@@ -60,6 +80,7 @@ General rules:
 - Do NOT wrap the text in quotes
 - Vary the style: sometimes ask a question, sometimes share a tip, sometimes share an insight
 - Write in the brand's voice
+- Write in Brazilian Portuguese
 - Return ONLY the post text, nothing else
 """
 
@@ -81,6 +102,51 @@ General rules:
         f"for [{platform_client.account_name}] ({len(text)} chars): {text[:80]}..."
     )
     return text
+
+
+def generate_preview_content() -> dict:
+    """Generate a Twitter-style preview post based on trending topics, without posting."""
+    trending = fetch_trending_topics()
+
+    brand_name = os.getenv("BRAND_NAME", "PopVibe")
+    brand_description = os.getenv("BRAND_DESCRIPTION", "")
+    brand_tone = os.getenv("BRAND_TONE", "descontraído, divertido")
+    brand_topics = os.getenv("BRAND_TOPICS", "cultura pop")
+
+    trending_section = ""
+    if trending:
+        trending_section = f"\nTrending topics no Brasil agora: {', '.join(trending)}\n"
+
+    prompt = f"""Você é um especialista em redes sociais. Gere um único tweet para a marca abaixo.
+
+Marca: {brand_name}
+Descrição: {brand_description}
+Tom: {brand_tone}
+Tópicos da marca: {brand_topics}
+{trending_section}
+Regras:
+- Máximo 280 caracteres
+- Tom autêntico e descontraído
+- Se tiver trending topic relevante, use-o
+- Use hashtags relevantes
+- Escreva em português brasileiro
+- Retorne APENAS o texto do tweet, nada mais
+"""
+
+    if _is_demo_mode():
+        return {"content": random.choice(DEMO_TWEETS), "trending": trending, "demo": True}
+
+    client = get_client()
+    message = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=512,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    text = message.content[0].text.strip()
+    if len(text) > 280:
+        text = text[:277] + "..."
+
+    return {"content": text, "trending": trending, "demo": False}
 
 
 def _generate_demo_content(platform_client: PlatformClient) -> str:

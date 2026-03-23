@@ -10,6 +10,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import agent
+from app.content_generator import generate_preview_content
 from app.database import get_all_posts, get_post_stats, init_db
 from app.platforms.registry import PlatformRegistry
 from app.scheduler import start_scheduler, stop_scheduler
@@ -77,6 +78,17 @@ async def api_accounts():
         "accounts": registry.get_accounts_summary(),
         "available_platforms": registry.get_available_platforms(),
     }
+
+
+@app.get("/api/generate-preview")
+async def api_generate_preview():
+    """Generate content preview based on trending topics without posting."""
+    try:
+        result = generate_preview_content()
+        return result
+    except Exception as e:
+        logger.error(f"Preview generation failed: {e}")
+        return {"error": str(e)}
 
 
 @app.post("/api/post-now")
