@@ -38,8 +38,10 @@ class PlatformRegistry:
 
     def __init__(self, config_path: str = None):
         if config_path is None:
+            # Go up from app/platforms/ -> app/ -> project root
             config_path = os.path.join(
-                os.path.dirname(os.path.dirname(__file__)), "accounts.json"
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                "accounts.json",
             )
         self.config_path = config_path
         self.accounts: list[AccountConfig] = []

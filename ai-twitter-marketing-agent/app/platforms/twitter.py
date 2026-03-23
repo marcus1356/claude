@@ -1,4 +1,5 @@
 import tweepy
+import random
 import logging
 
 from app.platforms.base import PlatformClient, PostResult
@@ -11,6 +12,9 @@ class TwitterClient(PlatformClient):
     max_length = 280
     supports_images = False
 
+    def _is_demo(self) -> bool:
+        return self.credentials.get("api_key") == "demo"
+
     def _get_client(self) -> tweepy.Client:
         return tweepy.Client(
             bearer_token=self.credentials.get("bearer_token"),
@@ -21,6 +25,14 @@ class TwitterClient(PlatformClient):
         )
 
     def post(self, text: str) -> PostResult:
+        if self._is_demo():
+            fake_id = str(random.randint(1_000_000_000, 9_999_999_999))
+            logger.info(f"[{self.account_name}] [DEMO] Tweet simulated. ID: {fake_id}")
+            return PostResult(
+                external_id=fake_id,
+                url=f"https://twitter.com/i/status/{fake_id}",
+            )
+
         client = self._get_client()
         response = client.create_tweet(text=text)
         tweet_id = str(response.data["id"])
