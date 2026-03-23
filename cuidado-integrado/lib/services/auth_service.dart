@@ -45,6 +45,9 @@ class AuthService extends ChangeNotifier {
 
   User? getCurrentUser() => _currentUser;
 
+  /// Retorna cópia imutável de todos os usuários (para uso no painel admin).
+  List<User> get allUsers => List.unmodifiable(_users);
+
   /// Inicializa o serviço carregando dados salvos do dispositivo.
   ///
   /// CONCEITO: async/await — Operações de leitura do disco são "assíncronas",
@@ -71,8 +74,61 @@ class AuthService extends ChangeNotifier {
       }
     }
 
+    // Garante que o owner existe sempre
+    _seedOwnerIfNeeded();
+    // Garante que o usuário PcD de demonstração existe sempre
+    _seedPcdUserIfNeeded();
+
     _isInitialized = true;
     notifyListeners();
+  }
+
+  /// Cria o usuário owner caso ainda não exista.
+  /// Chamado automaticamente na inicialização.
+  void _seedOwnerIfNeeded() {
+    const ownerEmail = 'owner@cuidadointegrado.com';
+    final exists = _users.any((u) => u.email == ownerEmail);
+    if (exists) return;
+
+    final owner = User(
+      id: 'owner-001',
+      name: 'Marcus',
+      email: ownerEmail,
+      password: 'Owner@2026',
+      phone: '(00) 00000-0000',
+      city: 'Brasil',
+      userType: UserType.professional,
+      createdAt: DateTime(2026, 1, 1),
+      isOwner: true,
+    );
+
+    _users.insert(0, owner);
+    _saveUsers();
+  }
+
+  /// Cria o usuário PcD de demonstração caso ainda não exista.
+  void _seedPcdUserIfNeeded() {
+    const pcdEmail = 'ana@cuidadointegrado.com';
+    final exists = _users.any((u) => u.email == pcdEmail);
+    if (exists) return;
+
+    final pcd = User(
+      id: 'pcd-001',
+      name: 'Ana Silva',
+      email: pcdEmail,
+      password: 'Ana@2026',
+      phone: '(11) 99999-0001',
+      city: 'São Paulo',
+      userType: UserType.personWithDisability,
+      createdAt: DateTime(2026, 1, 1),
+      disabilityType: DisabilityType.physical,
+      usesWheelchair: true,
+      dateOfBirth: DateTime(1990, 5, 15),
+      specificNeeds: 'Acessibilidade para cadeirante',
+    );
+
+    _users.add(pcd);
+    _saveUsers();
   }
 
   /// Salva a lista de usuários no armazenamento local.

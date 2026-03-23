@@ -173,6 +173,10 @@ class User {
   final UserType userType;
   final DateTime createdAt;
 
+  /// Indica que este usuário é o dono (owner) da plataforma.
+  /// Owners têm acesso ao painel administrativo.
+  final bool isOwner;
+
   // --- Campos do Profissional de Saúde ---
   final ProfessionalSpecialty? specialty;
   final String? professionalRegistration; // Ex: CRM 12345
@@ -205,6 +209,7 @@ class User {
     required this.city,
     required this.userType,
     required this.createdAt,
+    this.isOwner = false,
     // Campos opcionais
     this.specialty,
     this.professionalRegistration,
@@ -234,6 +239,7 @@ class User {
       'city': city,
       'userType': userType.name,
       'createdAt': createdAt.toIso8601String(),
+      'isOwner': isOwner,
       // Profissional
       'specialty': specialty?.name,
       'professionalRegistration': professionalRegistration,
@@ -269,6 +275,7 @@ class User {
         orElse: () => UserType.personWithDisability,
       ),
       createdAt: DateTime.parse(json['createdAt'] as String),
+      isOwner: json['isOwner'] as bool? ?? false,
       // Profissional
       specialty: json['specialty'] != null
           ? ProfessionalSpecialty.values.firstWhere(
@@ -317,6 +324,7 @@ class User {
     String? city,
     UserType? userType,
     DateTime? createdAt,
+    bool? isOwner,
     ProfessionalSpecialty? specialty,
     String? professionalRegistration,
     String? officeAddress,
@@ -341,6 +349,7 @@ class User {
       city: city ?? this.city,
       userType: userType ?? this.userType,
       createdAt: createdAt ?? this.createdAt,
+      isOwner: isOwner ?? this.isOwner,
       specialty: specialty ?? this.specialty,
       professionalRegistration:
           professionalRegistration ?? this.professionalRegistration,

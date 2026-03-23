@@ -133,6 +133,27 @@ class HomeScreen extends StatelessWidget {
 
               const SizedBox(height: 24.0),
 
+              // Botão: Painel Admin (somente owner)
+              if (user?.isOwner == true) ...[
+                ElevatedButton.icon(
+                  onPressed: () => Navigator.pushNamed(context, '/admin'),
+                  icon: const Icon(Icons.shield),
+                  label: const Text(
+                    'Painel do Owner',
+                    style: TextStyle(fontSize: 16.0),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 52.0),
+                    backgroundColor: const Color(0xFF1565C0),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12.0),
+              ],
+
               // Botão: Editar perfil
               ElevatedButton.icon(
                 onPressed: () => Navigator.pushNamed(context, '/profile'),

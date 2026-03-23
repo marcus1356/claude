@@ -18,6 +18,7 @@ import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/admin_screen.dart';
 
 void main() async {
   // Necessário para usar await antes de runApp()
@@ -53,6 +54,7 @@ class CuidadoIntegradoApp extends StatelessWidget {
           '/register': (_) => const RegisterScreen(),
           '/home': (_) => const HomeScreen(),
           '/profile': (_) => const ProfileScreen(),
+          '/admin': (_) => const AdminScreen(),
         },
       ),
     );
