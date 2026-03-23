@@ -214,86 +214,101 @@
     </div>
 
     <script>
+        const BASE = window.location.origin;
         let accountsList = [];
 
         async function loadAccounts() {
             try {
-                const res = await fetch('/api/accounts');
+                const res = await fetch(BASE + '/api/accounts');
+                if (!res.ok) throw new Error('HTTP ' + res.status);
                 const data = await res.json();
                 accountsList = data.accounts || [];
 
                 const bar = document.getElementById('accountsBar');
-                bar.innerHTML = accountsList.map(a => `
-                    <div class="account-chip platform-${a.platform}">
-                        <span class="dot ${a.enabled ? 'active' : 'inactive'}"></span>
-                        ${a.name}
-                    </div>
-                `).join('');
+                bar.innerHTML = accountsList.map(a =>
+                    '<div class="account-chip platform-' + a.platform + '">' +
+                    '<span class="dot ' + (a.enabled ? 'active' : 'inactive') + '"></span>' +
+                    a.name +
+                    '</div>'
+                ).join('');
 
                 const select = document.getElementById('postAccount');
-                select.innerHTML = '<option value="">Todas contas</option>' +
-                    accountsList.filter(a => a.enabled).map(a =>
-                        `<option value="${a.name}">${a.name} (${a.platform})</option>`
-                    ).join('');
+                var opts = '<option value="">Todas contas</option>';
+                accountsList.filter(function(a){ return a.enabled; }).forEach(function(a){
+                    opts += '<option value="' + a.name + '">' + a.name + ' (' + a.platform + ')</option>';
+                });
+                select.innerHTML = opts;
             } catch (e) {
                 console.error('Failed to load accounts:', e);
+                document.getElementById('accountsBar').innerHTML =
+                    '<div class="account-chip" style="border-color:#f4212e;">Erro ao carregar contas: ' + e.message + '</div>';
             }
         }
 
         async function loadData() {
             try {
-                const platform = document.getElementById('filterPlatform').value;
-                const qs = platform ? `?platform=${platform}` : '';
+                var platform = document.getElementById('filterPlatform').value;
+                var qs = platform ? '?platform=' + platform : '';
 
-                const [statsRes, postsRes] = await Promise.all([
-                    fetch('/api/stats' + qs),
-                    fetch('/api/posts' + qs)
-                ]);
-                const stats = await statsRes.json();
-                const posts = await postsRes.json();
+                var statsRes = await fetch(BASE + '/api/stats' + qs);
+                var postsRes = await fetch(BASE + '/api/posts' + qs);
+
+                if (!statsRes.ok) throw new Error('Stats HTTP ' + statsRes.status);
+                if (!postsRes.ok) throw new Error('Posts HTTP ' + postsRes.status);
+
+                var stats = await statsRes.json();
+                var posts = await postsRes.json();
 
                 document.getElementById('statTotal').textContent = stats.total;
                 document.getElementById('statPosted').textContent = stats.posted;
                 document.getElementById('statFailed').textContent = stats.failed;
                 document.getElementById('statPending').textContent = stats.pending;
 
-                const container = document.getElementById('postsContainer');
+                var container = document.getElementById('postsContainer');
                 if (posts.length === 0) {
                     container.innerHTML = '<div class="empty-state"><p>Nenhum post ainda. Clique em "Postar Agora" ou aguarde o agendamento diario.</p></div>';
                     return;
                 }
 
-                container.innerHTML = posts.map(post => `
-                    <div class="post-card">
-                        <div class="post-header">
-                            <span class="platform-badge badge-${post.platform}">${post.platform}</span>
-                            <span class="account-label">${escapeHtml(post.account_name)}</span>
-                        </div>
-                        <div class="post-content">${escapeHtml(post.content)}</div>
-                        <div class="post-meta">
-                            <span>${formatDate(post.created_at)}</span>
-                            <div style="display:flex;align-items:center;gap:12px;">
-                                ${post.external_url ? `<a class="external-link" href="${escapeHtml(post.external_url)}" target="_blank">Ver post &#8599;</a>` : ''}
-                                <span class="status-badge status-${post.status}">${post.status}</span>
-                            </div>
-                        </div>
-                        ${post.error_message ? `<div class="error-msg">Erro: ${escapeHtml(post.error_message)}</div>` : ''}
-                    </div>
-                `).join('');
+                var html = '';
+                for (var i = 0; i < posts.length; i++) {
+                    var post = posts[i];
+                    html += '<div class="post-card">';
+                    html += '<div class="post-header">';
+                    html += '<span class="platform-badge badge-' + post.platform + '">' + post.platform + '</span>';
+                    html += '<span class="account-label">' + escapeHtml(post.account_name) + '</span>';
+                    html += '</div>';
+                    html += '<div class="post-content">' + escapeHtml(post.content) + '</div>';
+                    html += '<div class="post-meta">';
+                    html += '<span>' + formatDate(post.created_at) + '</span>';
+                    html += '<div style="display:flex;align-items:center;gap:12px;">';
+                    if (post.external_url) {
+                        html += '<a class="external-link" href="' + escapeHtml(post.external_url) + '" target="_blank">Ver post &#8599;</a>';
+                    }
+                    html += '<span class="status-badge status-' + post.status + '">' + post.status + '</span>';
+                    html += '</div></div>';
+                    if (post.error_message) {
+                        html += '<div class="error-msg">Erro: ' + escapeHtml(post.error_message) + '</div>';
+                    }
+                    html += '</div>';
+                }
+                container.innerHTML = html;
             } catch (e) {
                 console.error('Failed to load data:', e);
+                document.getElementById('postsContainer').innerHTML =
+                    '<div class="empty-state"><p style="color:#f4212e;">Erro ao carregar dados: ' + e.message + '</p></div>';
             }
         }
 
         async function triggerPost() {
-            const btn = document.getElementById('btnPost');
-            const account = document.getElementById('postAccount').value;
+            var btn = document.getElementById('btnPost');
+            var account = document.getElementById('postAccount').value;
             btn.disabled = true;
             btn.textContent = 'Gerando...';
             try {
-                const qs = account ? `?account=${encodeURIComponent(account)}` : '';
-                const res = await fetch('/api/post-now' + qs, { method: 'POST' });
-                const data = await res.json();
+                var qs = account ? '?account=' + encodeURIComponent(account) : '';
+                var res = await fetch(BASE + '/api/post-now' + qs, { method: 'POST' });
+                var data = await res.json();
                 if (data.error) alert('Erro: ' + data.error);
                 await loadData();
             } catch (e) {
@@ -306,14 +321,14 @@
 
         function escapeHtml(text) {
             if (!text) return '';
-            const div = document.createElement('div');
+            var div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
         }
 
         function formatDate(iso) {
             if (!iso) return '';
-            const d = new Date(iso + 'Z');
+            var d = new Date(iso + 'Z');
             return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
         }
 

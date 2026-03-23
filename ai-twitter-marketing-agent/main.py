@@ -1,8 +1,11 @@
+import os
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -10,6 +13,8 @@ from app import agent
 from app.database import get_all_posts, get_post_stats, init_db
 from app.platforms.registry import PlatformRegistry
 from app.scheduler import start_scheduler, stop_scheduler
+
+BASE_DIR = Path(__file__).resolve().parent
 
 load_dotenv()
 
@@ -37,13 +42,23 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="AI Social Media Marketing Agent", lifespan=lifespan)
-app.mount("/static", StaticFiles(directory="static"), name="static")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+static_dir = BASE_DIR / "static"
+if static_dir.is_dir() and any(static_dir.iterdir()):
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 
 @app.get("/", response_class=HTMLResponse)
 async def dashboard():
-    with open("templates/dashboard.html", "r") as f:
-        return f.read()
+    html_path = BASE_DIR / "templates" / "dashboard.html"
+    return html_path.read_text(encoding="utf-8")
 
 
 @app.get("/api/posts")
