@@ -46,3 +46,17 @@ app.*.map.json
 
 # Coverage reports (gerado localmente via flutter test --coverage)
 coverage/
+
+# Nested clone (accidental)
+claude/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.db
+.env
+posts.db
+
+# Node
+node_modules/
